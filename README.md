@@ -12,4 +12,4 @@ In this project, my goal will be to use data from accelerometers on the belt, fo
 
 This report describes how a model was built, how cross validation was used, what the expected out of sample error might be, and the rationale behind the choices made. The prediction model will also be used to predict 20 different test cases.
 
-Ref: [Prediction-Assignment-Writeup HTML](https://www.coursera.org/learn/practical-machine-learning/supplement/PvInj/course-project-instructions-read-first)
+Ref: [Prediction-Assignment-Writeup HTML](https://rpubs.com/groupejopa/728147)
