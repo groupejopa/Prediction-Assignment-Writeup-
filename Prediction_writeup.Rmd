@@ -1,0 +1,217 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Joseph Boateng"
+date: "2/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Summary
+This document is the final report of the Peer Assessment project from the Practical Machine Learning course, which is a part of the Coursera John’s Hopkins University Data Science Specialization. It was written and coded in RStudio, using its knitr functions and published in the html and markdown format. The goal of this project is to predict the manner in which the six participants performed the exercises. The machine learning algorithm, which uses the classe variable in the training set, is applied to the 20 test cases available in the test data.
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+In this project, my goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict the manner in which they did the exercise.
+
+This report describes how a model was built, how cross validation was used, what the expected out of sample error might be, and the rationale behind the choices made. The prediction model will also be used to predict 20 different test cases.
+
+Ref: [Coursera](https://www.coursera.org/learn/practical-machine-learning/supplement/PvInj/course-project-instructions-read-first)
+
+## Set-up
+
+The following packages are required to reproduce results.
+
+```{r, warning=FALSE, message=FALSE}
+
+set.seed(2018)
+#Loading Packages
+library(caret)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+library(knitr)
+library(rattle)
+library(RColorBrewer)
+library(lattice)
+library(gbm)
+```
+
+# Data Collection
+Source: [http://groupware.les.inf.puc-rio.br/har](http://groupware.les.inf.puc-rio.br/har)
+
+The training data for this project are available here:
+[https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv)
+
+The test data are available here:
+[https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv)
+
+## Loading the data
+Load the files, create 70/30 data partition and check for NAs. Missing data is mapped to NA strings.
+
+
+```{r, warning=FALSE}
+
+set.seed(123)
+
+# Getting and Cleaning Data
+# Preparing for download
+Trainurl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+Testurl  <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+# download the datasets
+if(!file.exists("./data/training.csv")){
+ download.file(Trainurl, destfile = "./data/training.csv", method = "curl")
+download.file(Trainurl, destfile = "./data/testing.csv", method = "curl")
+}
+
+# Read data
+training <- read.csv("./data/training.csv", na.strings = c("NA", "#DIV/0!"))
+testing <- read.csv("./data/testing.csv", na.strings = c("NA", "#DIV/0!"))
+```
+
+## Create a partition with the Training dataset
+In building our model, for a cross validation objective, we subset our training data to a real training set and a test set. Partitioning will allow us to cross-validate. The data will be partitioned into 70% Training and 30% Testing bootstrap samples.
+
+```{r, warning=FALSE}
+inTrain  <- createDataPartition(training$classe, p=0.7, list=FALSE)
+Train <- training[inTrain, ]
+Test  <- testing[-inTrain, ]
+
+```
+
+## Cleaning variables that have near zero values
+
+```{r, warning=FALSE}
+NZV <- nearZeroVar(Train)
+Train <- Train[, -NZV]
+Test  <- Test[, -NZV]
+
+# Removing the nomenclature columns
+Train <- Train[, -(1:5)]
+Test  <- Test[, -(1:5)]
+```
+
+## Looking at the data
+
+### Removing variables with too many NA values, 90% NA or more
+
+```{r, echo=FALSE}
+View(Train)
+View(Test)
+```
+
+We can see that in the training set we have 13737 observations of 126 variables and that in the testing set we have 5885 observations of 126 variables. Many of that variables (columns) have a lot of NAs and the first seven columns appear to have only identification purposes of the observations with little interest
+to prediction.
+
+```{r}
+# Remove variables in the training set with too much NAs 
+ToomanyNA    <- sapply(Train, function(x) mean(is.na(x))) > 0.90
+Train <- Train[, ToomanyNA==FALSE]
+Test  <- Test[, ToomanyNA==FALSE]
+```
+
+
+--------------------------------
+## Prediction with Random Forests
+--------------------------------
+
+
+```{r}
+# Model Fit
+set.seed(12345)
+controlrf <- trainControl(method="repeatedcv", number=5, verboseIter=FALSE, repeats=2)
+modFitrf <- train(y = Train$classe, x = Train[,-ncol(Train)], method = "rpart")
+
+modFitrf$finalModel
+
+
+### The Random Forest model is selected and applied to make predictions on the 20
+### data points from the original testing dataset (testing).
+
+# Prediction on Test
+predictrf <- predict(modFitrf, newdata=Test)
+confMatrf <- confusionMatrix(predictrf, factor(Test$classe))
+                             
+confMatrf
+```
+
+
+```{r}
+# Plot
+plot(confMatrf$table, col = confMatrf$byClass, 
+     main = paste("Random Forest Accuracy =",
+                  round(confMatrf$overall['Accuracy'], 4)))
+```
+### The predictive accuracy of the Random Forest model is excellent at 99.8 %.
+
+
+
+
+---------------------------------
+## Prediction with Decision Trees
+---------------------------------
+
+
+```{r}
+# Model Fit
+set.seed(2222)
+modFitdt <- rpart(classe ~ ., data=Train, method="class")
+fancyRpartPlot(modFitdt)
+
+
+# Predictions of the decision tree model on Test
+predictdf <- predict(modFitdt, newdata=Test, type="class")
+confMatdf <- confusionMatrix(predictdf, factor(Test$classe))
+confMatdf
+```
+
+
+
+```{r}
+# Plot the predictive accuracy of the decision tree model.
+plot(confMatdf$table, col = confMatdf$byClass, 
+     main = paste("Decision Tree Accuracy =",
+                  round(confMatdf$overall['Accuracy'], 4)))
+```
+### The predictive accuracy of the decision tree model is relatively low at *82.7%*.
+
+
+
+------------------------------------------------
+## Prediction with Generalized Boosted Regression
+------------------------------------------------
+
+```{r}
+# Model Fit
+controlgbm <- trainControl(method = "repeatedcv", number = 5, repeats = 1)
+modFitgbm <- train(classe ~ ., data=Train, method = "gbm",
+                    trControl = controlgbm, verbose = FALSE)
+modFitgbm$finalModel
+
+
+# Prediction on Test
+predictgbm <- predict(modFitgbm, newdata=Test)
+confMatgbm <- confusionMatrix(predictgbm, factor(Test$classe))
+confMatgbm
+```
+
+```{r}
+# Plot
+plot(confMatgbm$table, col = confMatgbm$byClass, 
+     main = paste("Generalized Boosted Regression Accuracy =", round(confMatgbm$overall['Accuracy'], 4)))
+```
+### The predictive accuracy of the decision tree model is relatively high at *98.7%*.
+
+
+### Applying the Best Predictive Model to the Test Data
+The following are the predictive accuracy of the three models:
+
+Decision Tree Model: *82.7 %*
+Generalized Boosted Model: *98.7 %*
+Random Forest Model: *99.80 %*
+
