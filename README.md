@@ -1,5 +1,6 @@
 # Prediction-Assignment-Writeup
 
+[Prediction-Assignment-Writeup HTML](https://rpubs.com/groupejopa/728147)
 
 ## Summary
 This document is the final report of the Peer Assessment project from the Practical Machine Learning course, which is a part of the Coursera John’s Hopkins University Data Science Specialization. It was written and coded in RStudio, using its knitr functions and published in the html and markdown format. The goal of this project is to predict the manner in which the six participants performed the exercises. The machine learning algorithm, which uses the classe variable in the training set, is applied to the 20 test cases available in the test data.
